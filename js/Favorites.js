@@ -1,3 +1,5 @@
+import { GithubUsers } from "./GithubUsers.js"
+
 //Parte lógica de iniciar
 export class Favorites {
   constructor(root) {
@@ -6,42 +8,79 @@ export class Favorites {
   }
 
   load() {
-    this.entries = [{
-      login: 'eduardooliveira3101',
-      name: 'Eduardo Oliveira',
-      public_repos: '45454',
-      followers: '121545'
-    },
-      {
-      login: 'maykbrito',
-      name: 'Mayk Brito',
-      public_repos: '8787878',
-      followers: '10000000000'
+    this.entries = JSON.parse(localStorage.getItem('@github-favorites')) || []
+  }
+
+  save() {
+    localStorage.setItem('@github-favorites', JSON.stringify(this.entries))
+  }
+
+  async add(username) {
+    try {
+      const userExists = this.entries.find(entry => entry.login === username)
+      if(userExists) {
+        throw new Error(`Usuário já cadastrado`)
       }
-    ]
+
+      const user = await GithubUsers.search(username)
+      if(user.login === undefined) {
+        throw new Error('Usuário não encontrado')
+      }
+
+      this.entries = [...this.entries, user]
+      this.update()
+      this.save()
+
+    } catch(error) {
+      alert(error.message)
+    }
+  }
+
+  delete(user) {
+    const filteredEntries = this.entries.filter(entry => entry.login !== user.login)
+    this.entries = filteredEntries
+    this.update()
+    this.save()
   }
 }
-
 //Parte de eventos e visualização 
 export class FavoritesView extends Favorites {
   constructor(root) {
     super(root)
     this.tbody = this.root.querySelector('table tbody')
 
+    this.onadd()
     this.update()
+  }
+
+  onadd() {
+    const addButton = this.root.querySelector('.search button')
+
+    addButton.onclick = () => {
+      const {value} = this.root.querySelector('.search input')
+
+      this.add(value)
+    }
   }
 
   update() {
     this.removeAllTr()
 
-    this.entries.forEach(users => {
+    this.entries.forEach(user => {
       const row = this.createRow()
-      row.querySelector('.user img').src = `https://github.com/${users.login}.png` 
-      row.querySelector('.user p').textContent = users.name 
-      row.querySelector('.user span').textContent = users.login 
-      row.querySelector('.repositories').textContent = users.public_repos 
-      row.querySelector('.followers').textContent = users.followers
+      row.querySelector('.user img').src = `https://github.com/${user.login}.png`
+      row.querySelector('.user a').href = `https://github.com/${user.login}`
+      row.querySelector('.user p').textContent = user.name 
+      row.querySelector('.user span').textContent = user.login 
+      row.querySelector('.repositories').textContent = user.public_repos 
+      row.querySelector('.followers').textContent = user.followers
+      row.querySelector('.remove').onclick = () => {
+        const isOk = confirm(`Deseja realmente remover esta linha?`)
 
+        if(isOk) {
+          this.delete(user)
+        }
+      }
 
       this.tbody.append(row)
     } )
